@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "/Users/psyoblade/anaconda/envs/opensim-rl/bin/python"
+    "python.pythonPath": "/Users/psyoblade/anaconda/envs/opensim-rl/bin/python",
+    "python.linting.pylintEnabled": true
 }
