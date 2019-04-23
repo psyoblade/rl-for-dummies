@@ -1,20 +1,21 @@
 import gym
+import numpy as np
 from com.modulabs.ctrl.utils.FileUtils import FileUtils
 from com.modulabs.ctrl.utils.SeedNumbers import RandomSeeder
-from com.modulabs.ctrl.agents.DQNAgent import DQNAgent
+from com.modulabs.ctrl.agents.RNDAgent import RNDAgent
 
 RandomSeeder.set_seed()
 GYM_ENV_NAME = 'CartPole-v1'
 EPISODES = 300
 
-model_path = './models/dqn.h5'
+model_path = './models/rnd.h5'
 cache_name = 'cartpole'
 cache_dir = './' + cache_name
 
 
 def train():
     env = gym.make(GYM_ENV_NAME)
-    agent = DQNAgent(env)
+    agent = RNDAgent(env)
     completed = False
 
     if FileUtils.exists_file(model_path):
@@ -34,36 +35,38 @@ def train():
             if len(agent.replay_memory) >= agent.train_start:
                 agent.train_model()
 
-            scores.append(reward)
             score += reward
             state = next_state
 
             if done:
-                agent.update_model()
+                scores.append(score)
+                # agent.update_model()
                 print("episode:{}, score:{} ".format(e, score))
 
-        if score >= 490 and e > 200:
+        mean_score = np.mean(scores[-10:])
+        if len(scores) > 10 and mean_score > 490:
             agent.save_weights(model_path)
             completed = True
-            print("learning completed")
+            print("last 10 mean of scores is {}, learning completed = {}".format(mean_score, scores[-10:]))
             break
 
     return completed
 
 
 def test():
+    FileUtils.remove_dir(cache_dir)
+
     env = gym.make(GYM_ENV_NAME)
-    agent = DQNAgent(env, epsilon=0.0)
+    wenv = gym.wrappers.Monitor(env, cache_name)
+    agent = RNDAgent(wenv, epsilon=0.0)
     if FileUtils.exists_file(model_path):
         agent.load_weights(model_path)
-    FileUtils.remove_dir(cache_dir)
-    wenv = gym.wrappers.Monitor(env, cache_name)
 
     done = False
-    states = wenv.reset()
+    states = agent.reset()
     while not done:
-        wenv.render()
-        action = agent.get_greedy_action(states)
+        agent.render()
+        action = agent.get_action(states)
         states, reward, done, _ = wenv.step(action)
 
 

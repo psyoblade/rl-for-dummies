@@ -3,6 +3,7 @@ import numpy as np
 from com.modulabs.ctrl.utils.SeedNumbers import RandomSeeder
 from collections import deque
 
+RandomSeeder.set_seed()
 items = deque(maxlen=100)
 
 for x in range(0, 100):
@@ -16,8 +17,6 @@ def debug(name, o):
     print('\n')
 
 
-RandomSeeder.set_seed()
-
 def test_transpose():
     samples = random.sample(items, 10)
     debug('list', samples)
@@ -27,10 +26,17 @@ def test_transpose():
     t1, t2, t3, t4 = xxx
     debug('numpy', t4)
 
-
-def foo():
+def test_random():
     for x in range(1000):
         print(np.random.rand())
 
+def test_np_mean():
+    list = []
+    for x in range(100):
+        list.append(x)
+    mean = np.mean(list[-10:])
+    print("{} = {}".format(mean, list[-10:]))
+
+
 if __name__ == "__main__":
-    foo()
+    test_np_mean()
