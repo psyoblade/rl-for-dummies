@@ -17,11 +17,12 @@ from skimage.color import rgb2gray
 
 class CNNAgent:
 
-    def __init__(self, env, name, epsilon=1.0, epsilon_decay=0.999, epsilon_min=0.01, batch_size=32,
+    def __init__(self, env, name, timestamp, epsilon=1.0, epsilon_decay=0.999, epsilon_min=0.01, batch_size=32,
                  train_start=50000, update_target_rate=10000, learning_rate=0.001, discount_factor=0.99,
                  max_replay=400000, load_model=False, no_op_steps=30, rend=False):
         self.env = env
         self.name = name
+        self.timestamp = timestamp
         self.load_model = load_model
         self.no_op_steps = no_op_steps
         self.rend = rend
@@ -48,7 +49,7 @@ class CNNAgent:
         # 서머리 정보 저장
         self.avg_q_max, self.avg_loss = 0, 0
         self.summary_placeholders, self.update_ops, self.summary_op = self.setup_summary()
-        self.summary_writer = tf.summary.FileWriter("summary/{}".format(self.name), self.session.graph)
+        self.summary_writer = tf.summary.FileWriter("summary/{}/{}".format(self.name, self.timestamp), self.session.graph)
         self.session.run(tf.global_variables_initializer())
 
     def __del__(self):

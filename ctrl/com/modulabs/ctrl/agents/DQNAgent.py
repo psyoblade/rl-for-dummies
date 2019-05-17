@@ -10,14 +10,18 @@ from keras import backend as K
 
 class DQNAgent:
 
-    def __init__(self, env, name, timestamp, epsilon=1.0, epsilon_decay=0.999, epsilon_min=0.01, batch_size=64,
-                 train_start=1000, learning_rate=0.001, discount_factor=0.99, max_replay=2000,
-                 rend=False, load_model=False):
+    def __init__(self, env, name, timestamp, epsilon=1.0, epsilon_decay=0.999, epsilon_min=0.01,
+                 batch_size=64, train_start=1000, learning_rate=0.001, discount_factor=0.99,
+                 max_replay=2000, load_model=False, use_swa=False):
         self.env = env
         self.name = name
         self.timestamp = timestamp
-        self.rend = rend
         self.load_model = load_model
+        # SWA 적용
+        self.use_swa = use_swa
+        self.num_of_swa = 1
+        self.weight_of_swa = None
+        # 학습에 필요한 하이퍼 파라메터
         self.state_size = env.observation_space.shape[0]
         self.action_size = env.action_space.n
         self.learning_rate = learning_rate
@@ -27,10 +31,11 @@ class DQNAgent:
         self.batch_size = batch_size
         self.train_start = train_start
         self.discount_factor = discount_factor
+        # 모델 빌드
         self.behavior_policy = self.build_model()
         self.target_policy = self.build_model()
         self.replay_memory = deque(maxlen=max_replay)
-        self.update_model()
+        self.update_model(0)
         # 텐서보드 설정
         self.session = tf.InteractiveSession()
         K.set_session(self.session)
@@ -39,9 +44,6 @@ class DQNAgent:
         self.summary_placeholders, self.update_ops, self.summary_op = self.setup_summary()
         self.summary_writer = tf.summary.FileWriter("summary/{}/{}".format(self.name, self.timestamp), self.session.graph)
         self.session.run(tf.global_variables_initializer())
-
-        if self.rend:
-            self.env.render()
 
     def __del__(self):
         pass
@@ -64,8 +66,12 @@ class DQNAgent:
         summary_op = tf.summary.merge_all()
         return summary_placeholders, update_ops, summary_op
 
+    def render(self):
+        self.env.render()
+
     def reset(self):
         state = self.env.reset()
+        print('state.shape:{}'.format(state.shape))
         state = np.reshape(state, [1, self.state_size])
         return state
 
@@ -100,8 +106,16 @@ class DQNAgent:
         x = (state, action, reward, next_state, done)
         self.replay_memory.append(x)
 
-    def update_model(self):
-        self.target_policy.set_weights(self.behavior_policy.get_weights())
+    def update_model_with_swa(self):
+        weight = self.behavior_policy.get_weights()
+        self.target_policy.set_weights(np.divide(np.add(np.multiply(weight, self.num_of_swa), weight), self.num_of_swa + 1).tolist())
+        self.num_of_swa += 1
+
+    def update_model(self, episode):
+        if self.use_swa and episode > 500:
+            self.update_model_with_swa()
+        else:
+            self.target_policy.set_weights(self.behavior_policy.get_weights())
 
     def train_model(self):
         if self.epsilon > self.epsilon_min:
