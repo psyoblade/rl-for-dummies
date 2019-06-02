@@ -19,16 +19,19 @@ class CNNAgent:
 
     def __init__(self, env, name, timestamp, epsilon=1.0, epsilon_decay=0.999, epsilon_min=0.01, batch_size=32,
                  train_start=50000, update_target_rate=10000, learning_rate=0.001, discount_factor=0.99,
-                 max_replay=400000, load_model=False, no_op_steps=30, rend=False):
+                 max_replay=400000, load_model=False, no_op_steps=30):
         self.env = env
         self.name = name
         self.timestamp = timestamp
         self.load_model = load_model
         self.no_op_steps = no_op_steps
-        self.rend = rend
         # Bugfix, 실제 state 값은 env.observation_space.shape 84 x 84 x 3 이지만 history 4장을 쓰기 때문에 수정
-        self.state_size = (84, 84, 4)
+        self.width, self.height, self.color = env.observation_space.shape
+        self.ages = 4  # length of image history
+        self.state_size = (self.width, self.height, self.ages)
         self.action_size = env.action_space.n
+        # 6 actions = ['NOOP', 'FIRE', 'RIGHT', 'LEFT', 'RIGHTFIRE', 'LEFTFIRE']
+        # print(env.unwrapped.get_action_meanings())
         self.learning_rate = learning_rate
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
@@ -59,8 +62,8 @@ class CNNAgent:
         self.env.render()
 
     @staticmethod
-    def rgb_to_gray(obs):
-        return np.uint8(resize(rgb2gray(obs), (84, 84), mode='constant') * 255)
+    def rgb_to_gray(obs, width, height):
+        return np.uint8(resize(rgb2gray(obs), (width, height), mode='constant') * 255)
 
     @staticmethod
     def setup_summary():
@@ -86,16 +89,19 @@ class CNNAgent:
         obs = self.env.reset()
         for _ in range(random.randint(1, self.no_op_steps)):
             obs, _, _, _ = self.env.step(do_nothing)
-        state = self.rgb_to_gray(obs)
-        history = np.stack((state, state, state, state), axis=2)
-        history = np.reshape([history], (1, 84, 84, 4))
+        state = self.rgb_to_gray(obs, self.width, self.height)
+        history = np.stack((state, state, state, state), axis=2)  # (84, 84, 4) axis 는 어느 차원에 넣을지를 결정 (0, 1, 2) 위치
+        history = np.reshape([history], (1, self.width, self.height, self.ages))  # (1, 84, 84, 4)
         return history
 
     def step(self, action, history):
-        next_obs, reward, done, info = self.env.step(action)
-        next_state = self.rgb_to_gray(next_obs)
-        next_state = np.reshape([next_state], (1, 84, 84, 1))
-        next_history = np.append(next_state, history[:, :, :, :3], axis=3)
+        return self.env_step(self.env, action, history)
+
+    def env_step(self, _env, _action, _history):
+        next_obs, reward, done, info = _env.step(_action)
+        next_state = self.rgb_to_gray(next_obs, self.width, self.height)
+        next_state = np.reshape([next_state], (1, self.width, self.height, 1))
+        next_history = np.append(next_state, _history[:, :, :, :3], axis=3)
         return next_history, reward, done, info
 
     def build_model(self):
@@ -105,14 +111,15 @@ class CNNAgent:
         model.add(Conv2D(64, (3, 3), strides=(1, 1), activation='relu'))
         model.add(Flatten())
         model.add(Dense(512, activation='relu'))
-        model.add(Dense(self.action_size))
+        model.add(Dense(self.action_size, activation='linear'))  # TODO 활성화 함수를 변경
         model.summary()
         return model
 
     def get_greedy_action(self, history):
         history = np.float32(history / 255.0)
         q_value = self.behavior_policy.predict(history)
-        return np.argmax(q_value[0])
+        ga = np.argmax(q_value[0])
+        return ga
 
     def get_random_action(self):
         action = random.randrange(self.action_size)

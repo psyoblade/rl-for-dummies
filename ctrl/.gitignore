@@ -1,5 +1,6 @@
 # Custom .gitignore
 cartpole/
+ctrl/summary/
 .idea/
 
 # Created by https://www.gitignore.io/api/git,python,pycharm
