@@ -1,0 +1,10 @@
+gym
+tensorflow
+scipy
+jupyter
+matplotlib
+scikit-learn
+scikit-image
+keras
+gitpython
+atari-py
